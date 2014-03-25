@@ -1,19 +1,66 @@
-import serial, sys, time, json, datetime
+import serial, sys, time, json, datetime, os
 
-ser = serial.Serial('/dev/tty.usbmodemfa131', 9600)
+class serialRead:
 
-with open('output.log', 'a+') as f:
-    while True:
-        jsonIn = json.loads(ser.readline())
-        if(jsonIn['timestamp'] == False):
-            jsonIn['timestamp'] = datetime.datetime.utcnow()
-        
-        print 'head:', jsonIn['readings'][0]['value']
-        print 'core:', jsonIn['readings'][1]['value']
-        print 'outside:', jsonIn['readings'][2]['value']
-        print 'time:', jsonIn['timestamp']
+    def __init__(self):
+        self.serialPort = '/dev/tty.usbmodemfd121'
+        self.logFileLocation = 'output.log'
+        if '--batch' in sys.argv:
+            self.sendLog()
+            sys.exit()
+        self.checkSerial()
+        self.openSerial()
+
+    def openSerial(self):
+        self.ser = serial.Serial()
+        self.ser.port = self.serialPort
+        self.ser.baudrate = 9600
+        self.ser.open()
+
+    def sendLog(self):
+        print 'send log'
+
+    def checkSerial(self):
+        if not os.path.exists(self.serialPort):
+            print 'port unavailable'
+            sys.exit()
+
+    def readSerial(self):
+        self.checkSerial()
+        self.jsonIn = json.loads(self.ser.readline())
+        if(self.jsonIn['timestamp'] == False):
+            self.jsonIn['timestamp'] = datetime.datetime.utcnow()
+
+    def writeToLog(self):
+        with open(self.logFileLocation, 'a+') as f:
+            if(self.jsonIn['timestamp'] == False):
+                self.jsonIn['timestamp'] = datetime.datetime.utcnow()
+            f.write(ser.readline())
+            f.flush()
+
+    def apiCall(self):
+        data = '?s01=%s&s02=%s&s03=%s&timestamp=%s' % (self.jsonIn['readings'][0]['value'], self.jsonIn['readings'][1]['value'], self.jsonIn['readings'][2]['value'], self.jsonIn['timestamp'])
+        print data
+
+    def printOut(self):
+        print 'head:', self.jsonIn['readings'][0]['value']
+        print 'core:', self.jsonIn['readings'][1]['value']
+        print 'outside:', self.jsonIn['readings'][2]['value']
+        print 'time:', self.jsonIn['timestamp']
         print '-----------'
 
-        #f.write(ser.readline())
-        #f.flush()
-        #time.sleep(10)
+    def apiAvailable(self):
+        return True
+
+
+sr = serialRead()
+
+if not sr.apiAvailable():
+    while True:
+        sr.readSerial()
+        sr.writeToLog()
+
+if sr.apiAvailable():
+    while True:
+        sr.readSerial()
+        sr.apiCall()
