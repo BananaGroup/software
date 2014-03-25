@@ -18,7 +18,9 @@ class serialRead:
         self.ser.open()
 
     def sendLog(self):
-        print 'send log'
+        print 'processing batch'
+        # send to api
+        print 'done'
 
     def checkSerial(self):
         if not os.path.exists(self.serialPort):
@@ -31,11 +33,16 @@ class serialRead:
         if(self.jsonIn['timestamp'] == False):
             self.jsonIn['timestamp'] = datetime.datetime.utcnow()
 
+    def prepareLog(self):
+        with open(self.logFileLocation, 'w') as f:
+            fields = '"s01","s02","s03","timestamp"\n'
+            f.write(fields)
+            f.flush
+
     def writeToLog(self):
         with open(self.logFileLocation, 'a+') as f:
-            if(self.jsonIn['timestamp'] == False):
-                self.jsonIn['timestamp'] = datetime.datetime.utcnow()
-            f.write(ser.readline())
+            data = '%s,%s,%s,%s\n' % (self.jsonIn['readings'][0]['value'], self.jsonIn['readings'][1]['value'], self.jsonIn['readings'][2]['value'], self.jsonIn['timestamp'])
+            f.write(data)
             f.flush()
 
     def apiCall(self):
@@ -50,12 +57,13 @@ class serialRead:
         print '-----------'
 
     def apiAvailable(self):
-        return True
+        return False
 
 
 sr = serialRead()
 
 if not sr.apiAvailable():
+    sr.prepareLog()
     while True:
         sr.readSerial()
         sr.writeToLog()
