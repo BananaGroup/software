@@ -1,4 +1,4 @@
-import serial, sys, time, json, datetime, os
+import serial, sys, time, json, os
 
 class serialRead:
 
@@ -31,7 +31,7 @@ class serialRead:
         self.checkSerial()
         self.jsonIn = json.loads(self.ser.readline())
         if(self.jsonIn['timestamp'] == False):
-            self.jsonIn['timestamp'] = datetime.datetime.utcnow()
+            self.jsonIn['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
 
     def prepareLog(self):
         with open(self.logFileLocation, 'w') as f:
