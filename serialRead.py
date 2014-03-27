@@ -1,4 +1,4 @@
-import serial, sys, time, json, os
+import serial, sys, time, json, os, requests
 
 class serialRead:
 
@@ -19,7 +19,9 @@ class serialRead:
 
     def sendLog(self):
         print 'processing batch'
-        # send to api
+        url = 'http://projects.jjw.al/hotwire/service/'
+        logFile = {'file': open(self.logFileLocation, 'rb')}
+        r.requests.post(url, files=logFile)
         print 'done'
 
     def checkSerial(self):
