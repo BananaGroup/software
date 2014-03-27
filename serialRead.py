@@ -20,7 +20,7 @@ class serialRead:
     def sendLog(self):
         print 'processing batch'
         url = 'http://projects.jjw.al/hotwire/service/'
-        logFile = {'file': open(self.logFileLocation, 'rb')}
+        payload = {'file': open(self.logFileLocation, 'rb'), 'datatype': 'csv'}
         r.requests.post(url, files=logFile)
         print 'done'
 
