@@ -3,14 +3,41 @@ import serial, sys, time, json, os, requests
 class serialRead:
 
     def __init__(self):
-        self.serialPort = '/dev/tty.usbmodemfd121'
+        self.serialPort = '/dev/tty.usbmodemfa131'
         self.logFileLocation = 'output.log'
-        self.apiUrl = 'http://projects.jjw.al/hotwire/service/'
+        self.apiUrl = 'http://files.joshwalwyn.com/university/307CR/hotwire/server/run.php'
         if '--batch' in sys.argv:
             self.sendLog()
             sys.exit()
         self.checkSerial()
         self.openSerial()
+        self.serialBuffer = []
+        if not self.apiAvailable():
+            self.prepareLog()
+        if '--forceHeat' in sys.argv:
+            self.heatOn()
+
+    def heatOn(self):
+        self.ser.write(b'1')
+        print 'heating'
+
+    def buffer(self):
+        if len(self.serialBuffer) == 0:
+            for reading in self.jsonIn['readings']:
+                self.serialBuffer.append([])
+        else:
+            i = 0
+            for reading in self.jsonIn['readings']:
+                self.serialBuffer[i].append(reading['value'])
+                i+=1
+        if len(self.serialBuffer[0]) == 1000:
+            i = 0
+            for reading in self.jsonIn['readings']:
+                reading['value'] = sum(self.serialBuffer[i]) / len(self.serialBuffer[i])
+                i+=1
+            self.serialBuffer = []
+            self.handle()
+
 
     def openSerial(self):
         self.ser = serial.Serial()
@@ -21,8 +48,8 @@ class serialRead:
     def sendLog(self):
         print 'processing batch'
         payload = {'file': open(self.logFileLocation, 'rb')}
-        r.requests.post('%s?datatype=csv' % self.apiUrl, files=logFile)
-        print 'done'
+        r = requests.post('%s?datatype=csv' % self.apiUrl, files=payload)
+        print r.text
 
     def checkSerial(self):
         if not os.path.exists(self.serialPort):
@@ -34,6 +61,14 @@ class serialRead:
         self.jsonIn = json.loads(self.ser.readline())
         if(self.jsonIn['timestamp'] == False):
             self.jsonIn['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.buffer()
+
+    def handle(self):
+        if self.apiAvailable():
+            self.apiCall()
+        else:
+            self.writeToLog()
+        self.printOut()
 
     def prepareLog(self):
         with open(self.logFileLocation, 'w') as f:
@@ -44,16 +79,18 @@ class serialRead:
     def writeToLog(self):
         with open(self.logFileLocation, 'a+') as f:
             for reading in self.jsonIn['readings']:
-                data = '%s,%s,%s,%s\n' % (self.jsonIn['userId'], reading['sensorId'], reading['value'], self.jsonIn['timestamp'])
+                data = '%s,%s,%s,%s\n' % (self.jsonIn['user_id'], reading['sensor_id'], reading['value'], self.jsonIn['timestamp'])
                 f.write(data)
                 f.flush()
 
     def apiCall(self):
         for reading in self.jsonIn['readings']:
             payload = {'user_id': self.jsonIn['user_id'], 'sensor_id': reading['sensor_id'], 'value': reading['value'], 'timestamp': self.jsonIn['timestamp']}
-            r.requests.post(self.apiUrl, params=payload)
+            r = requests.post(self.apiUrl, data=payload)
+            print r.text
 
     def printOut(self):
+        print 'user_id:', self.jsonIn['user_id']
         print 'head:', self.jsonIn['readings'][0]['value']
         print 'core:', self.jsonIn['readings'][1]['value']
         print 'outside:', self.jsonIn['readings'][2]['value']
@@ -66,13 +103,5 @@ class serialRead:
 
 sr = serialRead()
 
-if not sr.apiAvailable():
-    sr.prepareLog()
-    while True:
-        sr.readSerial()
-        sr.writeToLog()
-
-if sr.apiAvailable():
-    while True:
-        sr.readSerial()
-        sr.apiCall()
+while True:
+    sr.readSerial()
